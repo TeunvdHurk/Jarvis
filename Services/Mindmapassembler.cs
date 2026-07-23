@@ -75,7 +75,6 @@ public sealed class MindMapAssembler : IMindMapAssembler
             var result = await AgentsRegionBuilder.BuildAsync(_agentRegistry, ct);
             nodes.AddRange(result.Nodes);
             edges.AddRange(result.Edges);
-            return true;
         });
 
         await RunRegion("rim", sourceStatus, async () =>
@@ -83,7 +82,6 @@ public sealed class MindMapAssembler : IMindMapAssembler
             var result = await RimRegionBuilder.BuildAsync(_toolRegistry, ct);
             nodes.AddRange(result.Nodes);
             edges.AddRange(result.Edges);
-            return true;
         });
 
         await RunRegion("knowledge", sourceStatus, async () =>
@@ -91,7 +89,6 @@ public sealed class MindMapAssembler : IMindMapAssembler
             var result = await KnowledgeRegionBuilder.BuildAsync(_knowledgeManifest, ct);
             nodes.AddRange(result.Nodes);
             edges.AddRange(result.Edges);
-            return true;
         });
 
         await RunRegion("working", sourceStatus, async () =>
@@ -99,7 +96,6 @@ public sealed class MindMapAssembler : IMindMapAssembler
             var result = await WorkingRegionBuilder.BuildAsync(_conversationRepo, WorkingThreadLimit, ct);
             nodes.AddRange(result.Nodes);
             edges.AddRange(result.Edges);
-            return true;
         });
 
         var nodeIds = nodes.Select(n => n.Id).ToHashSet();
@@ -126,8 +122,13 @@ public sealed class MindMapAssembler : IMindMapAssembler
         return new MindMapSkeleton { Nodes = nodes, Edges = validEdges, Stats = stats };
     }
 
-    /// <summary>Runs one region's builder; on failure, records "error" in stats and leaves that region empty rather than throwing.</summary>
-    private async Task<T?> RunRegion<T>(string name, Dictionary<string, string> sourceStatus, Func<Task<T>> build) where T : class
+    /// <summary>
+    /// Runs one region's builder and returns its result; on failure, records "error" in
+    /// stats and returns default(T) (null for reference types) rather than throwing.
+    /// No `class` constraint - some builders return value types, and `T?` covers both
+    /// nullable-reference and nullable-value-type cases correctly.
+    /// </summary>
+    private async Task<T?> RunRegion<T>(string name, Dictionary<string, string> sourceStatus, Func<Task<T>> build)
     {
         try
         {
@@ -139,7 +140,22 @@ public sealed class MindMapAssembler : IMindMapAssembler
         {
             _logger.LogError(ex, "Region '{Region}' failed to build; leaving it empty", name);
             sourceStatus[name] = "error";
-            return null;
+            return default;
+        }
+    }
+
+    /// <summary>Same as above for builders that mutate the shared node/edge lists directly and have nothing to return.</summary>
+    private async Task RunRegion(string name, Dictionary<string, string> sourceStatus, Func<Task> build)
+    {
+        try
+        {
+            await build();
+            sourceStatus[name] = "ok";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Region '{Region}' failed to build; leaving it empty", name);
+            sourceStatus[name] = "error";
         }
     }
 }
