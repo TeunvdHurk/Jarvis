@@ -399,3 +399,26 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# --- Jarvis project-specific ---
+
+# SQLite memory store - contains real personal/agent data, never commit
+*.db
+*.db-shm
+*.db-wal
+jarvis-memory.db
+
+# Local secrets / overrides (Chroma URLs, API keys, connection strings)
+appsettings.*.local.json
+.env
+.env.*
+
+# Vue/Vite frontend (Tier 2+)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+node_modules/
+dist/
+
+# Editor
+.idea/
